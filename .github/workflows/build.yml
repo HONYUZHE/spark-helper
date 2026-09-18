@@ -1,0 +1,70 @@
+name: build
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # 纯手工链路：aapt v1 + javac + R8/D8 + zipalign + apksigner
+      # （不用 Gradle/AGP：官方 build-tools 只有 x86_64，这套组合在 arm64 手机上也跑得起来）
+      - name: 安装构建工具
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            aapt apksigner zipalign openjdk-17-jdk-headless unzip curl python3-pil
+
+      - name: 准备 r8 与 android.jar
+        run: |
+          mkdir -p vendor
+          curl -fL --retry 3 --connect-timeout 20 \
+            -o vendor/r8.jar \
+            https://dl.google.com/dl/android/maven2/com/android/tools/r8/9.4.17/r8-9.4.17.jar
+          curl -fL --retry 3 --connect-timeout 20 \
+            -o platform-32.zip \
+            https://dl.google.com/android/repository/platform-32_r01.zip
+          mkdir -p vendor/platform-32
+          unzip -q -o platform-32.zip -d vendor/platform-32
+          ls vendor/platform-32/*/android.jar
+
+      - name: 生成图标
+        run: python3 make_icon.py
+
+      - name: 构建 APK
+        env:
+          SDKROOT: ${{ github.workspace }}/vendor
+        run: |
+          chmod +x build.sh
+          ./build.sh
+
+      - name: 校验签名与清单
+        run: |
+          apksigner verify --verbose out/spark-helper-*.apk | head -6
+          aapt dump badging out/spark-helper-*.apk | grep -E '^(package|sdkVersion|targetSdkVersion|application-label)'
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: spark-helper-apk
+          path: out/*.apk
+
+      - name: 打 tag 时发 Release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: out/*.apk
+          generate_release_notes: true
+          body: |
+            安装前请先读 [使用说明](https://github.com/${{ github.repository }}/blob/main/使用说明.md)。
+
+            > 抖音的用户协议不允许自动化操作。本项目只在你自己的手机上、给你自己的好友发消息，
+            > 请保持低频，账号风险自负。调试请用「试运行」（走流程但不点发送）。

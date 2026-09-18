@@ -1,0 +1,6 @@
+build/
+build-test/
+out/
+vendor/
+platform-*.zip
+*.apk

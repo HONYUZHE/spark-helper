@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">火花助手</string>
+    <string name="service_summary">定时打开抖音，给指定好友发一条消息</string>
+    <string name="service_desc">开启后，火花助手才能在你设定的时间自动打开抖音、进入和指定好友的聊天、输入并发送一条消息，用来维持聊天火花。本应用不联网、不上传任何数据，只在「抖音」里操作。</string>
+</resources>
